@@ -1,0 +1,126 @@
+// ==========================================
+// PRISMA SCHEMA - MEDICAL OFFICE SYSTEM
+// ==========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. ENUMS (Enumeraciones para opciones fijas)
+enum RoleName {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+}
+
+enum Gender {
+  M
+  F
+  OTHER
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// 2. MODELS
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        RoleName @unique
+  description String?
+  users       User[]   // Relación: Un rol tiene muchos usuarios
+  createdAt   DateTime @default(now())
+
+  @@map("roles") // Nombre real de la tabla en MySQL
+}
+
+model User {
+  id           BigInt   @id @default(autoincrement())
+  roleId       Int
+  role         Role     @relation(fields: [roleId], references: [id])
+  firstName    String
+  lastName     String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  isActive     Boolean  @default(true)
+
+  // Relaciones
+  appointments Appointment[] // Citas donde este usuario es el DOCTOR
+
+  // Auditoría
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime? // Soft Delete
+
+  @@map("users")
+}
+
+model Patient {
+  id           BigInt        @id @default(autoincrement())
+  firstName    String
+  lastName     String
+  birthDate    DateTime      @db.Date
+  gender       Gender
+  email        String?
+  phone        String
+  address      String?       @db.Text
+  allergies    String?       @db.Text
+  symptoms     String?       @db.Text
+
+  // Relaciones
+  appointments Appointment[]
+
+  // Auditoría
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@map("patients")
+}
+
+model Appointment {
+  id            BigInt            @id @default(autoincrement())
+  patientId     BigInt
+  patient       Patient           @relation(fields: [patientId], references: [id])
+  doctorId      BigInt
+  doctor        User              @relation(fields: [doctorId], references: [id])
+
+  scheduledAt   DateTime
+  status        AppointmentStatus @default(PENDING)
+  reason        String?
+  notes         String?           @db.Text
+
+  // Relación 1 a 1 con Historial Médico
+  medicalRecord MedicalRecord?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("appointments")
+}
+
+model MedicalRecord {
+  id            BigInt      @id @default(autoincrement())
+  appointmentId BigInt      @unique // Unique asegura relación 1 a 1
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  diagnosis     String      @db.Text
+  treatment     String      @db.Text
+  prescription  String?     @db.Text
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("medical_records")
+}

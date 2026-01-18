@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # BASE DE DATOS (Reemplaza a XAMPP)
+  db:
+    image: mysql:8.0
+    container_name: consultorio-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: consultorio
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql # Persistencia de datos
+
+  # BACKEND (Express + Prisma)
+  backend:
+    build: ./server
+    container_name: consultorio-backend
+    restart: on-failure
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: "mysql://root:root@db:3306/consultorio"
+      PORT: 3000
+
+  # FRONTEND (Vue + Quasar)
+  frontend:
+    build: ./client
+    container_name: consultorio-frontend
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true # Necesario para hot-reload en Windows
+
+volumes:
+  db_data:
